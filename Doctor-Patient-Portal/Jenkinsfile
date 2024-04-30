@@ -103,9 +103,8 @@ pipeline {
                             
                                sh 'docker push  17rj/doctor_patient_portals'
     
-                              }
-                     
-                    }
+                              }            
+                      }
                    
                   }
              }
@@ -127,10 +126,6 @@ pipeline {
                     )
                 }
             }
-        }
-         
-        
-    }
-    
-    
+        }  
+    }    
 }
