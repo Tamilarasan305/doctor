@@ -1,9 +1,5 @@
 version: '3.8'
-
-
-
 services:
-  # Use a more descriptive service name
   frontend:
     build: /Docker-Patient-Portal  # Build the frontend image from the current directory
     ports:
