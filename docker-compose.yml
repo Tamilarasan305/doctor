@@ -1,23 +1,23 @@
 version: '3.8'
+
 services:
-  frontend:
+  patient-portal-frontend:  # Descriptive service name
     build: /Docker-Patient-Portal  # Build the frontend image from the current directory
     ports:
-      - "8083:8083"  # Map container port 8085 to host port 8080 (standard HTTP)
+      - "8083:8083"  # Map container port 8083 to host port 8083
     environment:
-      - MYSQL_HOST=localhost  # Use the service name of the database container
+      - MYSQL_HOST=hospital-db  # Use the service name of the database container
       - MYSQL_PORT=3306  # Standard MySQL port
       - ...  # Add other environment variables from .env (see note)
     depends_on:
-      - db  # Ensure database is ready before starting frontend
+      - hospital-db  # Ensure database is ready before starting frontend
+    
 
-  # Use a more descriptive service name
-  db:
-     db:
+  hospital-db:  # Descriptive service name
     image: mysql:8.0  # Specify the desired MySQL version
     environment:
       - MYSQL_ROOT_PASSWORD=root@123  # Consider using a stronger password
       - MYSQL_DATABASE=hospital # Replace with your desired database name
     ports:
       - "3306:3306"  # Map container port 3306 (MySQL default) to host port 3306
-  
+
