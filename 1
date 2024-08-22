@@ -3,7 +3,7 @@ services:
   frontend:
     build: ./Doctor-Patient-Portal  # Build the frontend image from the current directory
     ports:
-      - "8080:8080"
+      - "8083:8083"
        # Map container port 8085 to host port 8080 (standard HTTP)
     environment:
       - MYSQL_HOST=${MYSQL_HOST}  # Use the service name of the database container
