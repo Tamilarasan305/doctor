@@ -131,12 +131,15 @@ spec:
     storage: 10Gi
   accessModes:
     - ReadWriteOnce
+  volumeMode: Filesystem
+  storageClassName: st1
   persistentVolumeReclaimPolicy: Retain
   hostPath:
     path: /data/
     type: DirectoryOrCreate
 
 ---
+
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -148,4 +151,3 @@ spec:
   resources:
     requests:
       storage: 10Gi
-  volumeName: mysql-pv-volume
