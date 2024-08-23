@@ -131,8 +131,6 @@ spec:
     storage: 10Gi
   accessModes:
     - ReadWriteOnce
-  volumeMode: Filesystem
-  storageClassName: st1
   persistentVolumeReclaimPolicy: Retain
   hostPath:
     path: /data/
