@@ -11,7 +11,8 @@ services:
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - MYSQL_USER=${MYSQL_USER}
     depends_on:
-      - db  # Ensure database is ready before starting frontend
+        db:
+          condition: service_healthy  # Ensure database is ready before starting frontend
 
     
 
@@ -25,7 +26,7 @@ services:
       - MYSQL_NAME=${MYSQL_NAME}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
     volumes:
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./int.sql:/docker-entrypoint-initdb.d/int.sql
     healthcheck:
       test: ["CMD","mysqladmin","ping"]
       interval: 10s
