@@ -1,0 +1,152 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-secret
+type: Opaque
+data:
+  password: cm9vdEBAMTIz
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  namespace: webapps
+  labels:
+    app: mysql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:latest
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: password
+
+          volumeMounts:
+            - name: mysql-persistent-storage
+              mountPath: /var/lib/mysql
+            - name: my-sql-script
+              mountPath: /docker-entrypoint-initdb.d
+      volumes:
+        - name: mysql-persistent-storage
+          persistentVolumeClaim:
+            claimName: mysql-pv-claim
+        - name: my-sql-script
+          configMap:
+            name: my-sql-script
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-service
+  namespace: webapps
+spec:
+  selector:
+    app: mysql
+  ports:
+    - protocol: TCP
+      port: 3306
+      targetPort: 3306
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-sql-script
+data:
+  init.sql: |
+    CREATE DATABASE IF NOT EXISTS hms;
+    #CREATE USER 'root'@'172.31.28.241' IDENTIFIED BY 'root@@123';
+    #GRANT ALL PRIVILEGES ON hms.* TO 'root'@'172.31.28.241';
+    USE hms;
+    CREATE TABLE users (
+      id INT NOT NULL PRIMARY KEY,
+      full_name VARCHAR(255) NOT NULL,
+      email VARCHAR(255) NOT NULL UNIQUE,
+      password VARCHAR(255) NOT NULL
+    );
+    CREATE TABLE user_details (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      full_name VARCHAR(255) NOT NULL,
+      email VARCHAR(255) NOT NULL UNIQUE,
+      password VARCHAR(255) NOT NULL
+    );
+    CREATE TABLE doctor (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      fullName VARCHAR(255) NOT NULL,
+      dateOfBirth DATE,
+      qualification VARCHAR(255),
+      specialist VARCHAR(255),
+      email VARCHAR(255) NOT NULL UNIQUE,
+      phone VARCHAR(20),
+      password VARCHAR(255) NOT NULL
+    );
+    CREATE TABLE specialist (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      specialist_name VARCHAR(255) NOT NULL UNIQUE
+    );
+    CREATE TABLE appointment (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      userId INT NOT NULL,
+      fullName VARCHAR(255) NOT NULL,
+      gender VARCHAR(10),
+      age VARCHAR(3),
+      appointmentDate DATETIME NOT NULL,
+      email VARCHAR(255) NOT NULL,
+      phone VARCHAR(20),
+      diseases TEXT,
+      doctorId INT NOT NULL,
+      address TEXT,
+      status VARCHAR(255)
+    );
+    ALTER TABLE appointment
+    ADD CONSTRAINT fk_appointment_doctor FOREIGN KEY (doctorId) REFERENCES doctor(id);
+    INSERT INTO doctor (fullName, dateOfBirth, qualification, specialist, email, phone, password)
+    VALUES ('Dr. John Doe', '1980-01-01', 'MD', 'General Medicine', 'johndoe@example.com', '1234567890', 'password123');
+    INSERT INTO doctor (fullName, dateOfBirth, qualification, specialist, email, phone, password)
+    VALUES ('Dr. Maria', '1975-01-01', 'MBBS', 'Dermatology', 'maria@example.com', '1234567890', 'password123');
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mysql-pv-volume
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  storageClassName: st1
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /data/
+    type: DirectoryOrCreate
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pv-claim
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: st1
+  resources:
+    requests:
+      storage: 10Gi
