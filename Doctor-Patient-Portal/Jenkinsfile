@@ -1,131 +1,115 @@
 pipeline {
     agent any
     
-    tools{
-        maven "maven3"
-        jdk "jdk17"
+    tools {
+        jdk 'jdk'
+        maven 'maven'
     }
-    
-    environment{
+
+    environment {
         SCANNER_HOME= tool 'sonar-scanner'
     }
 
     stages {
         stage('Git Checkout') {
             steps {
+                echo 'git login'
                 git branch: 'main', changelog: false, poll: false, url: 'https://github.com/17J/Doctor-Patient-Portal-AdvanceJavaWebProject.git'
             }
         }
-        stage('Repo Scan') {
+        stage('Compile') {
             steps {
-                sh 'trivy repo --format table -o repo-report.html https://github.com/17J/Doctor-Patient-Portal-AdvanceJavaWebProject.git'
-            }
-        }
-         stage('compile') {
-             steps {
-                dir('/var/lib/jenkins/workspace/Hospital/Doctor-Patient-Portal/') {
-                   sh 'mvn compile'
-                  }
-             }
-         }
-         stage('Test') {
-             steps {
-                dir('/var/lib/jenkins/workspace/Hospital/Doctor-Patient-Portal/') {
-                   sh 'mvn test'
-                  }
-             }
-         }
-         stage('OWASP Dependency') {
-             steps {
-                dependencyCheck additionalArguments: '--scan ./ --format HTML ', odcInstallation: 'DP'
-                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
-             }
-         }
-         stage('Code Analysis') {
-             steps {
-                  withSonarQubeEnv('sonar') {
-                       sh ''' $SCANNER_HOME/bin/sonar-scanner  -Dsonar.projectName=hospital \
-                           -Dsonar.java.binaries=.\
-                           -Dsonar.projectKey=hospital '''
-   
-                    }
-               }
-             }
-         stage('Quality Gate') {
-             steps {
-                script{
-
-                    waitForQualityGate abortPipeline: false, credentialsId: 'sonar'
-              }
-             }
-         }
-         stage('Nexus Publish') {
-             steps {
-              dir('/var/lib/jenkins/workspace/Hospital/Doctor-Patient-Portal/') {
-                  withMaven(globalMavenSettingsConfig: 'global-setting', jdk: 'jdk', maven: 'maven', mavenSettingsConfig: '', traceability: true) {
-                      sh 'mvn deploy'
-                    }
-                  }
-             }
-         }
-         stage('Build') {
-             steps {
-                dir('/var/lib/jenkins/workspace/Hospital/Doctor-Patient-Portal/') {
-                   sh 'mvn package'
-                  }
-             }
-         }
-         stage('Docker Build and Tag') {
-             steps {
-                
-                dir('/var/lib/jenkins/workspace/Hospital/Doctor-Patient-Portal/') {
-                     script{
-                         withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
-                              sh 'docker build -t dpps .'
-                         sh 'docker tag dpps 17rj/doctor_patient_portals'
-    
-                         }           
-                    }
-                   
-                  }
-             }
-         }
-         stage('Image Scan') {
-             steps {
-                sh 'trivy image --format table -o image-report.html 17rj/doctor_patient_portals'
-             }
-         }
-         stage('Docker Push') {
-             steps {
-                dir('/var/lib/jenkins/workspace/Hospital/Doctor-Patient-Portal/') {
-                     script{
-                         withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
-                            
-                               sh 'docker push  17rj/doctor_patient_portals'
-    
-                              }            
-                      }
-                   
-                  }
-             }
-         }
-         stage('Deploy Tomcat') {
-             steps {
-                
-                   sh 'cp /var/lib/jenkins/workspace/Hospital/Doctor-Patient-Portal/target/Doctor-Patient-Portal.war /opt/apache-tomcat-9.0.65/webapps/'
-                  
-             }
-         }
-         stage('Post-Build Actions') {
-            post {
-                always {
-                    emailaddress(
-                        to: 'demo@domain.com',
-                        subject: "Pipeline Success: ${currentBuild.fullDisplayName}",
-                        body: "The pipeline '${currentBuild.fullDisplayName}' completed successfully! See the logs here: ${env.JENKINS_URL}job/${currentBuild.jobName}/${currentBuild.number}/console"
-                    )
+                dir('/var/lib/jenkins/workspace/doctor-portal/Doctor-Patient-Portal/') {
+                sh "mvn compile"
                 }
             }
-        }  
-    }    
+        }
+        stage('Test') {
+            steps {
+                dir('/var/lib/jenkins/workspace/doctor-portal/Doctor-Patient-Portal/') {
+                sh "mvn test -DskipTests=true"
+                }
+            }
+        }
+        stage('File System Scan') {
+            steps {
+                sh "trivy fs --format table -o trivy-fs-report.html ."
+            }
+        }
+        stage('SonarQube Analsyis') {
+            steps {
+                withSonarQubeEnv('sonar-scanner') {
+                    sh ''' $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=doctor -Dsonar.projectKey=doctor \
+                            -Dsonar.java.binaries=. '''
+                }
+            }
+        }
+        stage('Quality Gate') {
+            steps {
+                script {
+                  waitForQualityGate abortPipeline: false, credentialsId: 'sonar-cred' 
+                }	
+            }
+        }
+        stage('Build') {
+            steps {
+                dir('/var/lib/jenkins/workspace/doctor-portal/Doctor-Patient-Portal/') {
+                sh "mvn package -DskipTests=true"
+                }
+            }
+        }
+        stage('Build & Tag Docker Image') {
+            steps {
+               script {
+                   withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
+                       dir('/var/lib/jenkins/workspace/doctor-portal/Doctor-Patient-Portal/') {
+                        sh "docker build -t maind ."
+                        sh "docker tag maind 17rj/doctor-patient"
+                }
+                       
+                            
+                    }
+               }
+            }
+        }
+        stage('Docker Image Scan') {
+            steps {
+                sh "trivy image --format table -o trivy-image-report.html  17rj/doctor-patient "
+            }
+        }
+        stage('Docker Image Push') {
+            steps {
+               script {
+                   withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
+                       dir('/var/lib/jenkins/workspace/doctor-portal/Doctor-Patient-Portal/') {
+                        sh "docker push  17rj/doctor-patient:latest"
+                          }
+                            
+                    }
+               }
+            }
+        }
+        stage('Deploy To Kubernetes') {
+            steps {
+               withKubeConfig(caCertificate: '', clusterName: 'main-eks17', contextName: '', credentialsId: 'kube-cred', namespace: 'webapps', restrictKubeConfigAccess: false, serverUrl: 'https://4D4C6465D0EABEF232FFC5BE0AA9F3B3.gr7.us-east-1.eks.amazonaws.com') {
+                dir('/var/lib/jenkins/workspace/doctor-portal/K8s/') {
+                     sh "kubectl apply -f fullstack-db.yml -n webapps"
+                     sh "kubectl apply -f fullstack-service-deployment.yml -n webapps"
+                     sleep 60
+                }
+               }
+            }
+        }
+        stage('Verify To Kubernetes') {
+            steps {
+               withKubeConfig(caCertificate: '', clusterName: 'main-eks17', contextName: '', credentialsId: 'kube-cred', namespace: 'webapps', restrictKubeConfigAccess: false, serverUrl: 'https://4D4C6465D0EABEF232FFC5BE0AA9F3B3.gr7.us-east-1.eks.amazonaws.com') {
+                
+                     sh "kubectl get pods -n webapps"
+                     sh "kubectl get svc -n webapps"
+                     
+                
+               }
+            }
+        }
+    }
 }
