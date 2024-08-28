@@ -45,7 +45,6 @@ spec:
         - name: my-volume
           persistentVolumeClaim:
             claimName: mysql-pv-claim
-            storageClassName: my-ebs-sc
         - name: my-sql-script
           configMap:
             name: my-sql-script
@@ -132,6 +131,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
+  storageClassName: my-ebs-sc
   resources:
     requests:
       storage: 10Gi
