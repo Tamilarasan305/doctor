@@ -38,13 +38,13 @@ spec:
 
           volumeMounts:
             - name: my-volume
-              mountPath: /var/lib/mysql
+              mountPath: /data
             - name: my-sql-script
               mountPath: /docker-entrypoint-initdb.d
       volumes:
         - name: my-volume
           persistentVolumeClaim:
-            claimName: mysql-pv-claim
+            claimName: mysql-pv-claim-new
         - name: my-sql-script
           configMap:
             name: my-sql-script
@@ -127,7 +127,7 @@ data:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: mysql-pv-claim
+  name: mysql-pv-claim-new
 spec:
   accessModes:
     - ReadWriteOnce
