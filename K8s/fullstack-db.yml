@@ -45,6 +45,7 @@ spec:
         - name: my-volume
           persistentVolumeClaim:
             claimName: mysql-pv-claim
+            storageClassName: my-ebs-sc
         - name: my-sql-script
           configMap:
             name: my-sql-script
@@ -121,14 +122,6 @@ data:
     VALUES ('Dr. John Doe', '1980-01-01', 'MD', 'General Medicine', 'johndoe@example.com', '1234567890', 'password123');
     INSERT INTO doctor (fullName, dateOfBirth, qualification, specialist, email, phone, password)
     VALUES ('Dr. Maria', '1975-01-01', 'MBBS', 'Dermatology', 'maria@example.com', '1234567890', 'password123');
----
-apiVersion: storage.k8s.io/v1
-kind: StorageClass
-metadata:
-  name: my-ebs-sc
-provisioner: storage.k8s.io/aws-ebs-csi
-parameters:
-  type: gp3  # EBS volume type
 
 ---
 
