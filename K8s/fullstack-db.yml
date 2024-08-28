@@ -37,12 +37,12 @@ spec:
                   key: password
 
           volumeMounts:
-            - name: mysql-persistent-storage
+            - name: my-volume
               mountPath: /var/lib/mysql
             - name: my-sql-script
               mountPath: /docker-entrypoint-initdb.d
       volumes:
-        - name: mysql-persistent-storage
+        - name: my-volume
           persistentVolumeClaim:
             claimName: mysql-pv-claim
         - name: my-sql-script
@@ -72,8 +72,8 @@ metadata:
 data:
   init.sql: |
     CREATE DATABASE IF NOT EXISTS hms;
-    #CREATE USER 'root'@'172.31.28.241' IDENTIFIED BY 'root@@123';
-    #GRANT ALL PRIVILEGES ON hms.* TO 'root'@'172.31.28.241';
+    #CREATE USER 'root'@'mysql-service' IDENTIFIED BY 'root@@123';
+    #GRANT ALL PRIVILEGES ON hms.* TO 'root'@'mysql-service';
     USE hms;
     CREATE TABLE users (
       id INT NOT NULL PRIMARY KEY,
@@ -122,21 +122,13 @@ data:
     INSERT INTO doctor (fullName, dateOfBirth, qualification, specialist, email, phone, password)
     VALUES ('Dr. Maria', '1975-01-01', 'MBBS', 'Dermatology', 'maria@example.com', '1234567890', 'password123');
 ---
-apiVersion: v1
-kind: PersistentVolume
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
 metadata:
-  name: mysql-pv-volume
-spec:
-  capacity:
-    storage: 10Gi
-  accessModes:
-    - ReadWriteOnce
-  volumeMode: Filesystem
-  storageClassName: st1
-  persistentVolumeReclaimPolicy: Retain
-  hostPath:
-    path: /data/
-    type: DirectoryOrCreate
+  name: my-ebs-sc
+provisioner: storage.k8s.io/aws-ebs-csi
+parameters:
+  type: gp3  # EBS volume type
 
 ---
 
