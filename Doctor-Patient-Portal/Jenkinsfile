@@ -1,0 +1,115 @@
+pipeline {
+    agent any
+    
+    tools {
+        jdk 'jdk'
+        maven 'maven'
+    }
+
+    environment {
+        SCANNER_HOME= tool 'sonar-scanner'
+    }
+
+    stages {
+        stage('Git Checkout') {
+            steps {
+                echo 'git login'
+                git branch: 'main', changelog: false, poll: false, url: 'https://github.com/17J/Doctor-Patient-Portal-AdvanceJavaWebProject.git'
+            }
+        }
+        stage('Compile') {
+            steps {
+                dir('/var/lib/jenkins/workspace/doctor-portal/Doctor-Patient-Portal/') {
+                sh "mvn compile"
+                }
+            }
+        }
+        stage('Test') {
+            steps {
+                dir('/var/lib/jenkins/workspace/doctor-portal/Doctor-Patient-Portal/') {
+                sh "mvn test -DskipTests=true"
+                }
+            }
+        }
+        stage('File System Scan') {
+            steps {
+                sh "trivy fs --format table -o trivy-fs-report.html ."
+            }
+        }
+        stage('SonarQube Analsyis') {
+            steps {
+                withSonarQubeEnv('sonar-scanner') {
+                    sh ''' $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=doctor -Dsonar.projectKey=doctor \
+                            -Dsonar.java.binaries=. '''
+                }
+            }
+        }
+        stage('Quality Gate') {
+            steps {
+                script {
+                  waitForQualityGate abortPipeline: false, credentialsId: 'sonar-cred' 
+                }	
+            }
+        }
+        stage('Build') {
+            steps {
+                dir('/var/lib/jenkins/workspace/doctor-portal/Doctor-Patient-Portal/') {
+                sh "mvn package -DskipTests=true"
+                }
+            }
+        }
+        stage('Build & Tag Docker Image') {
+            steps {
+               script {
+                   withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
+                       dir('/var/lib/jenkins/workspace/doctor-portal/Doctor-Patient-Portal/') {
+                        sh "docker build -t maind ."
+                        sh "docker tag maind 17rj/doctor-patient"
+                }
+                       
+                            
+                    }
+               }
+            }
+        }
+        stage('Docker Image Scan') {
+            steps {
+                sh "trivy image --format table -o trivy-image-report.html  17rj/doctor-patient "
+            }
+        }
+        stage('Docker Image Push') {
+            steps {
+               script {
+                   withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
+                       dir('/var/lib/jenkins/workspace/doctor-portal/Doctor-Patient-Portal/') {
+                        sh "docker push  17rj/doctor-patient:latest"
+                          }
+                            
+                    }
+               }
+            }
+        }
+        stage('Deploy To Kubernetes') {
+            steps {
+               withKubeConfig(caCertificate: '', clusterName: 'main-eks17', contextName: '', credentialsId: 'kube-cred', namespace: 'webapps', restrictKubeConfigAccess: false, serverUrl: 'https://4D4C6465D0EABEF232FFC5BE0AA9F3B3.gr7.us-east-1.eks.amazonaws.com') {
+                dir('/var/lib/jenkins/workspace/doctor-portal/K8s/') {
+                     sh "kubectl apply -f fullstack-db.yml -n webapps"
+                     sh "kubectl apply -f fullstack-service-deployment.yml -n webapps"
+                     sleep 60
+                }
+               }
+            }
+        }
+        stage('Verify To Kubernetes') {
+            steps {
+               withKubeConfig(caCertificate: '', clusterName: 'main-eks17', contextName: '', credentialsId: 'kube-cred', namespace: 'webapps', restrictKubeConfigAccess: false, serverUrl: 'https://4D4C6465D0EABEF232FFC5BE0AA9F3B3.gr7.us-east-1.eks.amazonaws.com') {
+                
+                     sh "kubectl get pods -n webapps"
+                     sh "kubectl get svc -n webapps"
+                     
+                
+               }
+            }
+        }
+    }
+}
